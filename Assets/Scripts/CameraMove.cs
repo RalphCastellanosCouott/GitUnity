@@ -20,36 +20,10 @@ public class CameraMove : MonoBehaviour
     private Transform mainCameraTransform;
     void Start()
     {
-        if (player != null)
-        {
-            playerController = player.GetComponent<PlayerMove>();
-            if (playerController == null)
-            {
-                Debug.Log("PlayerController no encontrado", this);
-            }
-        }
-        else
-        {
-            Debug.Log("El campo 'player' en", this);
-        }
-
-        if (Camera.main != null)
-        {
-            mainCameraTransform = Camera.main.transform;
-            if (mainCameraTransform != this.transform)
-            {
-                Debug.LogWarning("");
-            }
-        }
-        else
-        {
-            Debug.LogError("");
-        }
-
+        playerController = player.GetComponent<PlayerMove>();
+        mainCameraTransform = Camera.main.transform;
         Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
     }
-
 
     private void LateUpdate()
     {
@@ -74,23 +48,13 @@ public class CameraMove : MonoBehaviour
     }
 
     void UpdateCameraPosition()
-    {
-        if (cameraTarget == null)
-        {
-            Debug.LogError("", this);
-            return;
-        }
-        if (mainCameraTransform == null)
-        {
-            Debug.LogError("", this);
-            return;
-        }
+    {        
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 targetPosition = cameraTarget.position + rotation * shoulderOffice;
         mainCameraTransform.position = Vector3.Lerp(
             mainCameraTransform.position,
             targetPosition,
             followSpeed * Time.deltaTime);
-        mainCameraTransform.LookAt(cameraTarget.position);
+        mainCameraTransform.LookAt(cameraTarget);
     }
 }

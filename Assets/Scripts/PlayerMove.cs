@@ -13,13 +13,15 @@ public class PlayerMove : MonoBehaviour
 
     [Header("References")]
     public Transform cameraTransform;
+    public Animator animator;
     private CharacterController controller;
     private Vector3 velocity;
     private float currentSpeed;
-    private bool isGrounded;
     private float yaw;
-
-    public bool IsMoving{ get; private set; }
+    private Vector3 externalVelocity = Vector3.zero;
+    public bool IsMoving { get; private set; }
+    public Vector2 CurrentInput { get; private set; }
+    public bool IsGrounded { get; private set; }
     public float CurrentYaw => yaw;
     void Start()
     {
@@ -31,36 +33,54 @@ public class PlayerMove : MonoBehaviour
     {
         HandleMovement();
         HandleRotation();
+        UpdateAnimator();
+
+        Vidas sistemaVidas = GetComponent<Vidas>();
+        if (sistemaVidas != null && sistemaVidas.TieneFuerza)
+        {
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                animator?.SetTrigger("Golpe");
+            }
+        }
     }
 
     void HandleMovement()
     {
-        isGrounded = controller.isGrounded;
-        if (isGrounded && velocity.y < 0)
+        IsGrounded = controller.isGrounded;
+
+        if (IsGrounded && velocity.y < 0)
         {
-            velocity.y = -2f;
+            if (externalVelocity.y > -0.05f && externalVelocity.y < 0.05f) velocity.y = 0;
+            else velocity.y = -2f;
         }
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
-        Vector3 inputDirection = new Vector3(
-            horizontal,0f,vertical).normalized;
+        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
         IsMoving = inputDirection.magnitude > 0.1f;
+        Vector3 moveDirection = Vector3.zero;
+
         if (IsMoving)
         {
-            Vector3 moveDirection = Quaternion.Euler(
-                0f,
-                cameraTransform.eulerAngles.y,
-                0f) * inputDirection;
+            moveDirection = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f) * inputDirection;
             bool isSprinting = Input.GetKey(KeyCode.LeftShift);
             currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
-            controller.Move(moveDirection * currentSpeed * Time.deltaTime);
         }
-        if (Input.GetButtonDown("Jump") && isGrounded)
+
+        if (Input.GetButtonDown("Jump"))
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            animator?.SetBool("IsJumping", true);
         }
         velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        Vector3 finalMovement = (moveDirection * currentSpeed + externalVelocity) * Time.deltaTime;
+        finalMovement.y += velocity.y * Time.deltaTime;
+        controller.Move(finalMovement);
+
+        if (IsGrounded && velocity.y < 0.1f)
+        {
+            animator?.SetBool("IsJumping", false);
+        }
     }
 
     void HandleRotation()
@@ -74,5 +94,39 @@ public class PlayerMove : MonoBehaviour
                 Quaternion.Euler(0f, yaw, 0f),
                 rotationSpeed * Time.deltaTime);
         }
+    }
+
+    public void GolpeImpacto()
+    {
+        Vector3 centroGolpe = transform.position + transform.forward * 1f + Vector3.up * 1f;
+        Vector3 tamañoCaja = new Vector3(1f, 1f, 1f);
+
+        Collider[] objetosCercanos = Physics.OverlapBox(centroGolpe, tamañoCaja * 0.5f);
+        
+        foreach (Collider col in objetosCercanos)
+        {
+            if (col.CompareTag("BloqueRompible"))
+            {
+                Vidas sistemaVidas = GetComponent<Vidas>();
+                if (sistemaVidas != null && sistemaVidas.TieneFuerza)
+                {
+                    Destroy(col.gameObject);
+                    break;
+                }
+            }
+        }
+    }
+
+    void UpdateAnimator()
+    {
+        float SpeedPercent = IsMoving ? (currentSpeed == sprintSpeed ? 1f : 0.5f) : 0f;
+        animator?.SetFloat("Speed", SpeedPercent, 0.1f, Time.deltaTime);
+        animator?.SetBool("IsGrounded", IsGrounded);
+        animator?.SetFloat("VerticalSpeed", velocity.y);
+    }
+
+    public void SetExternalVelocity(Vector3 platformVelocity)
+    {
+        externalVelocity = platformVelocity;
     }
 }
